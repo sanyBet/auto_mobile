@@ -7,4 +7,6 @@ requires-python = ">=3.12"
 dependencies = [
     "droidrun[anthropic,deepseek,dev,google,ollama,openai]>=0.4.13",
     "llama-index-llms-openrouter>=0.4.2",
+    "python-dotenv>=1.0.0",
+    "pyyaml>=6.0.0",
 ]

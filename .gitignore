@@ -8,3 +8,11 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Environment variables and sensitive configs
+.env
+devices.yaml
+
+# Trajectories and logs
+trajectories/
+*.log

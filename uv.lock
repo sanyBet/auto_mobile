@@ -382,12 +382,16 @@ source = { virtual = "." }
 dependencies = [
     { name = "droidrun", extra = ["anthropic", "deepseek", "dev", "google", "ollama", "openai"] },
     { name = "llama-index-llms-openrouter" },
+    { name = "python-dotenv" },
+    { name = "pyyaml" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "droidrun", extras = ["anthropic", "deepseek", "dev", "google", "ollama", "openai"], specifier = ">=0.4.13" },
     { name = "llama-index-llms-openrouter", specifier = ">=0.4.2" },
+    { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.0" },
 ]
 
 [[package]]

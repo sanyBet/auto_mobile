@@ -1,0 +1,50 @@
+# 多设备配置文件示例
+# 复制此文件为 devices.yaml 并根据实际情况修改
+
+# 运行模式配置
+concurrency: 1  # 最大并发数，1=串行执行
+
+# 当前激活的任务（从 tasks 中选择一个）
+active_task: example_task
+
+# 任务模板库
+tasks:
+  # 示例任务：打开应用商店
+  example_task:
+    goal: "open app store"
+    max_steps: 100
+    reasoning: false
+
+  # 示例任务：深度测试
+  deep_test:
+    goal: |
+      Perform a comprehensive user experience test on the device.
+      1. Open the app store and browse popular apps
+      2. Download and test at least 2 apps
+      3. Check system settings and notifications
+    max_steps: 300
+    reasoning: true
+
+# 设备列表
+devices:
+  # 无线调试设备配置示例
+  my_phone_wireless:
+    enabled: true           # 是否启用此设备
+    type: wireless          # 设备类型: wireless | usb | emulator
+    host: 192.168.1.100     # 无线调试 IP 地址（从手机设置中获取）
+    port: 12345             # 无线调试端口（从手机设置中获取）
+    description: "我的手机无线调试"
+
+  # USB 连接设备配置示例
+  my_phone_usb:
+    enabled: false
+    type: usb
+    serial: "ABC123DEF456"  # 使用 adb devices 命令查看序列号
+    description: "我的手机 USB 连接"
+
+  # Android 模拟器配置示例
+  my_emulator:
+    enabled: false
+    type: emulator
+    serial: "emulator-5554"  # 模拟器序列号（通常是 emulator-5554）
+    description: "Android 模拟器"
