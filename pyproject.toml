@@ -9,4 +9,5 @@ dependencies = [
     "llama-index-llms-openrouter>=0.4.2",
     "python-dotenv>=1.0.0",
     "pyyaml>=6.0.0",
+    "rich>=13.0.0",
 ]

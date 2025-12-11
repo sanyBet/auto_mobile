@@ -384,6 +384,7 @@ dependencies = [
     { name = "llama-index-llms-openrouter" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "rich" },
 ]
 
 [package.metadata]
@@ -392,6 +393,7 @@ requires-dist = [
     { name = "llama-index-llms-openrouter", specifier = ">=0.4.2" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pyyaml", specifier = ">=6.0.0" },
+    { name = "rich", specifier = ">=13.0.0" },
 ]
 
 [[package]]
