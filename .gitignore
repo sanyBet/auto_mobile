@@ -16,3 +16,7 @@ devices.yaml
 # Trajectories and logs
 trajectories/
 *.log
+
+
+droidrun/
+tests/
