@@ -35,29 +35,90 @@ class ConfigLoader:
         if self.env_file.exists():
             load_dotenv(self.env_file)
 
-    def get_api_config(self) -> Dict[str, str]:
-        """Get API configuration from environment variables.
+    def _get_llm_provider(self) -> str:
+        """获取 LLM 提供商类型。
 
         Returns:
-            Dictionary with api_base, api_key, and model.
+            str: 'openrouter' 或 'packyapi'，默认 'openrouter'
 
         Raises:
-            ValueError: If required environment variables are missing.
+            ValueError: 如果提供商名称无效
         """
-        api_key = os.getenv("OPENROUTER_API_KEY")
-        model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o")
+        provider = os.getenv("LLM_PROVIDER", "openrouter").lower()
+
+        if provider not in ["openrouter", "packyapi"]:
+            raise ValueError(
+                f"无效的 LLM_PROVIDER: {provider}\n"
+                f"有效值: openrouter, packyapi"
+            )
+
+        return provider
+
+    def _get_packyapi_config(self) -> Dict[str, Any]:
+        """获取 PackyAPI 配置。
+
+        Returns:
+            字典包含: api_base, api_key, model, needs_custom_transport
+
+        Raises:
+            ValueError: 如果必需的环境变量缺失
+        """
+        base_url = os.getenv("PACKYAPI_BASE_URL")
+        api_key = os.getenv("PACKYAPI_API_KEY")
+        model = os.getenv("PACKYAPI_MODEL", "gpt-5.1")
+
+        if not base_url:
+            raise ValueError(
+                "PACKYAPI_BASE_URL 未设置。\n"
+                "请在 .env 文件中添加:\n"
+                "  PACKYAPI_BASE_URL=https://www.packyapi.com/v1"
+            )
 
         if not api_key:
             raise ValueError(
-                "OPENROUTER_API_KEY not found in environment variables. "
-                "Please create a .env file with your API key."
+                "PACKYAPI_API_KEY 未设置。\n"
+                "请在 .env 文件中添加:\n"
+                "  PACKYAPI_API_KEY=your_key_here"
             )
 
         return {
-            "api_base": "https://openrouter.ai/api/v1",
+            "api_base": base_url,
             "api_key": api_key,
             "model": model,
+            "needs_custom_transport": True,  # PackyAPI 需要修改 User-Agent
         }
+
+    def get_api_config(self) -> Dict[str, Any]:
+        """获取 API 配置（根据 LLM_PROVIDER 自动选择提供商）。
+
+        Returns:
+            字典包含: api_base, api_key, model, needs_custom_transport
+            - needs_custom_transport (bool): 是否需要自定义 http_client
+
+        Raises:
+            ValueError: 如果必需的环境变量缺失或提供商无效
+        """
+        provider = self._get_llm_provider()
+
+        if provider == "packyapi":
+            return self._get_packyapi_config()
+        else:  # openrouter
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            model = os.getenv("OPENROUTER_MODEL", "openai/gpt-4o")
+
+            if not api_key:
+                raise ValueError(
+                    "OPENROUTER_API_KEY 未在环境变量中找到。\n"
+                    "请在 .env 文件中添加:\n"
+                    "  OPENROUTER_API_KEY=your_key_here"
+                )
+
+            return {
+                "api_base": "https://openrouter.ai/api/v1",
+                "api_key": api_key,
+                "model": model,
+                "needs_custom_transport": False,  # OpenRouter 不需要自定义传输
+            }
 
     def load_devices_config(self) -> Dict[str, Any]:
         """Load device configuration from devices.yaml.

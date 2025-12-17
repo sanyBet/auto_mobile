@@ -13,6 +13,12 @@ from droidrun.agent.droid.events import (
     CodeActResultEvent,
     ScripterExecutorResultEvent,
 )
+from droidrun.agent.codeact.events import (
+    TaskThinkingEvent,
+    TaskExecutionEvent,
+    TaskExecutionResultEvent,
+    TaskEndEvent,
+)
 from llama_index.llms.openai_like import OpenAILike
 from droidrun.config_manager.config_manager import (
     DroidrunConfig,
@@ -160,12 +166,31 @@ class MultiDeviceRunner:
 
                 # Initialize LLM
                 logger.info(f"Initializing LLM: {self.llm_config['model']}")
-                llm = OpenAILike(
-                    api_base=self.llm_config["api_base"],
-                    api_key=self.llm_config["api_key"],
-                    model=self.llm_config["model"],
-                    is_chat_model=True,
-                )
+
+                # 根据配置决定是否使用自定义 http_client
+                if self.llm_config.get("needs_custom_transport", False):
+                    # PackyAPI 需要修改 User-Agent 以避免被拦截
+                    from utils.openai_client import CompatibleAsyncTransport
+                    import httpx
+
+                    logger.info("Using custom async HTTP transport for API compatibility")
+                    # 使用异步 HTTP 客户端（因为 DroidAgent 在异步环境中运行）
+                    async_http_client = httpx.AsyncClient(transport=CompatibleAsyncTransport())
+                    llm = OpenAILike(
+                        api_base=self.llm_config["api_base"],
+                        api_key=self.llm_config["api_key"],
+                        model=self.llm_config["model"],
+                        is_chat_model=True,
+                        async_http_client=async_http_client,
+                    )
+                else:
+                    # OpenRouter 或其他标准提供商
+                    llm = OpenAILike(
+                        api_base=self.llm_config["api_base"],
+                        api_key=self.llm_config["api_key"],
+                        model=self.llm_config["model"],
+                        is_chat_model=True,
+                    )
 
                 # Create trajectory folder
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -246,7 +271,43 @@ class MultiDeviceRunner:
         # Stream events to log progress
         async for event in handler.stream_events():
             # Log based on event type
-            if isinstance(event, ExecutorResultEvent):
+
+            # === CodeAct mode events (direct execution) ===
+            if isinstance(event, TaskThinkingEvent):
+                # Agent is thinking and generating code
+                current_step = agent.shared_state.step_number if hasattr(agent, "shared_state") else last_step
+                if event.thoughts:
+                    thought_preview = event.thoughts[:200] + "..." if len(event.thoughts) > 200 else event.thoughts
+                    logger.info(f"Step {current_step + 1}/{max_steps} [Thinking]: {thought_preview}")
+                if event.code:
+                    code_preview = event.code[:150] + "..." if len(event.code) > 150 else event.code
+                    logger.debug(f"  Code: {code_preview}")
+
+            elif isinstance(event, TaskExecutionEvent):
+                # Agent is executing code
+                current_step = agent.shared_state.step_number if hasattr(agent, "shared_state") else last_step
+                code_preview = event.code[:100] + "..." if len(event.code) > 100 else event.code
+                logger.info(f"Step {current_step + 1}/{max_steps} [Executing]: {code_preview}")
+
+            elif isinstance(event, TaskExecutionResultEvent):
+                # Code execution result
+                current_step = agent.shared_state.step_number if hasattr(agent, "shared_state") else last_step
+                output = str(event.output) if event.output else ""
+                if "Error" in output or "Exception" in output:
+                    output_preview = output[:150] + "..." if len(output) > 150 else output
+                    logger.warning(f"Step {current_step + 1}/{max_steps} [Error]: {output_preview}")
+                else:
+                    output_preview = output[:150] + "..." if len(output) > 150 else output
+                    logger.info(f"Step {current_step + 1}/{max_steps} [Result]: {output_preview}")
+                last_step = current_step + 1
+
+            elif isinstance(event, TaskEndEvent):
+                # Task ended
+                outcome = "✓" if event.success else "✗"
+                logger.info(f"Task [{outcome}]: {event.reason}")
+
+            # === Manager/Executor mode events (reasoning mode) ===
+            elif isinstance(event, ExecutorResultEvent):
                 # Executor completed an action
                 current_step = agent.shared_state.step_number if hasattr(agent, "shared_state") else last_step
                 summary = event.summary or "(action completed)"

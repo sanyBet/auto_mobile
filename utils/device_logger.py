@@ -24,6 +24,23 @@ class DeviceLogger:
         self.start_time: Optional[float] = None
         self._lock = Lock()
 
+    def _cleanup_old_logs(self, device_name: str) -> None:
+        """Remove old log files for a device, keeping only the latest.
+
+        Args:
+            device_name: Device name.
+        """
+        # Find all log files for this device
+        pattern = f"{device_name}_*.log"
+        old_logs = list(self.log_dir.glob(pattern))
+
+        # Delete all old logs for this device
+        for old_log in old_logs:
+            try:
+                old_log.unlink()
+            except OSError:
+                pass  # Ignore errors (file in use, etc.)
+
     def get_logger(self, device_name: str) -> logging.Logger:
         """Get or create a logger for a device.
 
@@ -35,6 +52,9 @@ class DeviceLogger:
         """
         with self._lock:
             if device_name not in self.loggers:
+                # Clean up old logs for this device first
+                self._cleanup_old_logs(device_name)
+
                 # Create timestamp for log file
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 log_file = self.log_dir / f"{device_name}_{timestamp}.log"

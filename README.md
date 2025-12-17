@@ -73,6 +73,19 @@ devices:
     description: "USB 连接手机"
 ```
 
+### 3. 连接手机并setup
+```bash
+adb connecat <ip>:<port>
+# 检查连接情况
+adb devices
+
+# 连接成功后对手机 setup，安装 droidrun
+droidrun setup --device 192.168.1.16:37941
+
+# 再次检查
+droidrun devices
+```
+
 ### 4. 运行脚本
 
 ```bash
