@@ -5,11 +5,13 @@
 ## 功能特性
 
 ✅ **多设备管理**：通过 YAML 配置文件管理多台设备
+✅ **进程级隔离**：支持 `--device` 参数单独运行设备，互不影响
 ✅ **自动重连**：无线调试设备自动检测并重连（解决 offline 问题）
 ✅ **并发控制**：支持串行/并行执行，可配置并发数
+✅ **守护进程**：自动监控并重启挂掉的设备（可配置重启次数限制）
 ✅ **安全配置**：API Key 和敏感配置通过 .env 文件管理
-✅ **独立日志**：每个设备独立的 trajectory 日志文件夹
-✅ **详细输出**：实时显示每个设备的执行进度和结果汇总
+✅ **独立日志**：每个设备独立的日志文件
+✅ **批量启动**：提供脚本一键启动/停止所有设备
 
 ## 快速开始
 
@@ -73,9 +75,9 @@ devices:
     description: "USB 连接手机"
 ```
 
-### 3. 连接手机并setup
+### 3. 连接手机并 setup
 ```bash
-adb connecat <ip>:<port>
+adb connect <ip>:<port>
 # 检查连接情况
 adb devices
 
@@ -89,8 +91,66 @@ droidrun devices
 ### 4. 运行脚本
 
 ```bash
-uv run basic.py
+# 运行所有启用的设备（单进程内并发）
+uv run main.py
+
+# 运行单个设备（独立进程，推荐）
+uv run main.py --device seeker_wireless_1
+
+# 指定设备 + 指定任务
+uv run main.py -d seeker_wireless_1 -t deep_explore
+
+# 查看帮助
+uv run main.py --help
 ```
+
+### 5. 批量启动（进程级隔离）
+
+使用脚本为每个设备启动独立进程，单个设备崩溃不影响其他设备：
+
+```bash
+# 启动所有设备 (1-13)
+./scripts/run_all.sh
+
+# 启动指定范围 (1-5)
+./scripts/run_all.sh 1 5
+
+# 启动指定范围 + 指定任务
+./scripts/run_all.sh 1 13 deep_explore
+
+# 停止所有进程
+./scripts/stop_all.sh
+
+# 查看实时日志
+tail -f logs/seeker_wireless_*.out
+```
+
+### 6. 守护进程（自动重启挂掉的设备）
+
+使用 watchdog 守护进程自动监控并重启挂掉的设备：
+
+```bash
+# 启动设备后，启动守护进程
+./scripts/run_all.sh 1 13
+./scripts/watchdog.sh start
+
+# 查看守护进程和设备状态
+./scripts/watchdog.sh status
+
+# 停止守护进程
+./scripts/watchdog.sh stop
+
+# 停止所有（设备 + 守护进程）
+./scripts/stop_all.sh
+
+# 查看守护进程日志
+tail -f logs/watchdog.log
+```
+
+**守护进程配置**（编辑 `scripts/watchdog.sh` 修改）：
+- `CHECK_INTERVAL=30` - 检查间隔（秒）
+- `RESTART_DELAY=30` - 检测到挂掉后等待时间（秒）
+- `MAX_RESTARTS=5` - 单设备最大重启次数，超过后放弃
 
 ## 配置说明
 
@@ -258,16 +318,25 @@ auto_mobile/
 ├── .env.example              # API 配置模板
 ├── devices.yaml              # 设备配置（不提交到 git）
 ├── devices.yaml.example      # 设备配置模板
-├── basic.py                  # 主入口脚本
+├── main.py                   # 主入口脚本
 ├── pyproject.toml            # 项目依赖
-├── utils/                    # 工具模块（正确位置）
+├── scripts/                  # 启动脚本
+│   ├── run_all.sh            # 批量启动所有设备
+│   ├── stop_all.sh           # 停止所有进程
+│   └── watchdog.sh           # 守护进程（自动重启挂掉的设备）
+├── utils/                    # 工具模块
 │   ├── __init__.py
 │   ├── config_loader.py      # 配置加载器
 │   ├── device_manager.py     # 设备连接管理（含自动重连）
-│   └── multi_runner.py       # 多设备并行/串行运行器
-└── trajectories/             # 执行日志（不提交到 git）
-    ├── device1_20251209_143645/
-    └── device2_20251209_143645/
+│   ├── device_logger.py      # 设备日志管理
+│   ├── multi_runner.py       # 多设备并行/串行运行器
+│   └── openai_client.py      # OpenAI 兼容客户端
+├── logs/                     # 设备日志（不提交到 git）
+│   ├── pids/                 # PID 文件（守护进程使用）
+│   ├── watchdog.log          # 守护进程日志
+│   └── seeker_wireless_1_*.log
+└── trajectories/             # 执行轨迹（不提交到 git）
+    └── seeker_wireless_1_*/
 ```
 
 ## 安全提示
@@ -277,15 +346,26 @@ auto_mobile/
 以下文件已自动添加到 `.gitignore`：
 - `.env` - 包含 API Key
 - `devices.yaml` - 可能包含内网 IP 等敏感信息
-- `trajectories/` - 执行日志可能包含隐私信息
+- `logs/` - 设备执行日志
+- `trajectories/` - 执行轨迹可能包含隐私信息
 
 只有 `.env.example` 和 `devices.yaml.example` 会被提交到 Git。
 
 ## 高级配置
 
+### 命令行参数
+
+```bash
+uv run main.py --help
+
+# 可用参数：
+#   --device, -d  指定单个设备运行（按 devices.yaml 中的设备名）
+#   --task, -t    指定任务（覆盖 active_task）
+```
+
 ### 自定义重连参数
 
-编辑 `basic.py`，修改 `DeviceManager` 初始化参数：
+编辑 `main.py`，修改 `DeviceManager` 初始化参数：
 
 ```python
 device_manager = DeviceManager(
@@ -296,7 +376,7 @@ device_manager = DeviceManager(
 
 ### 自定义 Agent 配置
 
-编辑 `basic.py`，修改 `agent_config`：
+编辑 `main.py`，修改 `agent_config`：
 
 ```python
 agent_config = DroidrunConfig(

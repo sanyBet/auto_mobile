@@ -147,15 +147,30 @@ class ConfigLoader:
         except yaml.YAMLError as e:
             raise ValueError(f"Failed to parse devices.yaml: {e}")
 
-    def get_enabled_devices(self) -> Dict[str, Dict[str, Any]]:
-        """Get only enabled devices from configuration.
+    def get_enabled_devices(self, device_name: Optional[str] = None) -> Dict[str, Dict[str, Any]]:
+        """Get devices from configuration.
+
+        Args:
+            device_name: If specified, return only this device (ignores enabled flag).
+                         If None, returns all enabled devices.
 
         Returns:
-            Dictionary of enabled devices with their configurations.
+            Dictionary of devices with their configurations.
+
+        Raises:
+            ValueError: If specified device_name not found.
         """
         config = self.load_devices_config()
         devices = config.get("devices", {})
 
+        # Single device mode
+        if device_name:
+            if device_name not in devices:
+                available = ", ".join(devices.keys())
+                raise ValueError(f"Device '{device_name}' not found. Available: {available}")
+            return {device_name: devices[device_name]}
+
+        # Default: return all enabled devices
         return {
             name: device_config
             for name, device_config in devices.items()

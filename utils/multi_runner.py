@@ -201,6 +201,7 @@ class MultiDeviceRunner:
                 logger.info("Creating DroidAgent...")
                 agent = DroidAgent(
                     goal=self.goal,
+                    timeout=10000,
                     llms=llm,
                     tools=tools,
                     config=self.agent_config,

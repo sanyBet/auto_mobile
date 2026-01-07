@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Multi-device DroidRun automation script."""
 
+import argparse
 import asyncio
 import sys
 from pathlib import Path
@@ -16,10 +17,37 @@ from droidrun.config_manager.config_manager import (
 from utils import ConfigLoader, DeviceManager, MultiDeviceRunner
 
 
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="DroidRun Multi-Device Automation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  uv run main.py                           # Run all enabled devices
+  uv run main.py --device seeker_wireless_1  # Run single device
+  uv run main.py -d seeker_wireless_1 -t deep_explore  # Device + task
+        """
+    )
+    parser.add_argument(
+        "--device", "-d",
+        help="Run only specified device (by name from devices.yaml)"
+    )
+    parser.add_argument(
+        "--task", "-t",
+        help="Override active_task from config"
+    )
+    return parser.parse_args()
+
+
 async def main():
     """Main entry point for multi-device automation."""
+    args = parse_args()
 
+    # Show mode in header
+    mode = f"Device: {args.device}" if args.device else "All enabled devices"
     print("🚀 DroidRun Multi-Device Automation")
+    print(f"📌 Mode: {mode}")
     print("=" * 60)
 
     try:
@@ -30,9 +58,9 @@ async def main():
         print("📝 Loading API configuration...")
         api_config = config_loader.get_api_config()
 
-        # Get device configuration
+        # Get device configuration (with optional filter)
         print("📱 Loading device configuration...")
-        device_configs = config_loader.get_enabled_devices()
+        device_configs = config_loader.get_enabled_devices(args.device)
 
         if not device_configs:
             print("❌ No enabled devices found in devices.yaml")
@@ -44,9 +72,9 @@ async def main():
         # Get execution settings
         concurrency = config_loader.get_concurrency()
 
-        # Get task configuration
+        # Get task configuration (with optional override)
         print("🎯 Loading task configuration...")
-        task_config = config_loader.get_task_config()
+        task_config = config_loader.get_task_config(args.task)
         print(f"✅ Using task: {task_config.name}")
         print(f"   max_steps: {task_config.max_steps}, reasoning: {task_config.reasoning}")
 
